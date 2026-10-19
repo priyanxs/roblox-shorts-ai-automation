@@ -158,21 +158,33 @@ def get_duration(file_path):
         return int(h) * 3600 + int(mn) * 60 + float(s)
     return 20.0
 
-def choose_background_video(niche):
+def choose_background_video(niche, topic_text=""):
     niche_dir = os.path.join(BASE_DIR, f"assets/{niche}")
     candidates = [
         os.path.join(niche_dir, f) for f in os.listdir(niche_dir)
-        if f.startswith("bg") and (f.endswith(".webm") or f.endswith(".mp4"))
+        if (f.endswith(".webm") or f.endswith(".mp4") or f.endswith(".mkv")) and not f.endswith(".part")
     ]
     if not candidates:
         raise FileNotFoundError(f"No background clips found in: {niche_dir}")
+        
+    # Smart matching if keyword matches topic
+    lower_topic = topic_text.lower()
+    for c in candidates:
+        name = os.path.basename(c).lower()
+        if "brookhaven" in lower_topic and "brookhaven" in name:
+            print(f"[{niche.upper()}] Matched Keyword Background: {os.path.basename(c)}")
+            return c
+        if ("blade" in lower_topic or "deflect" in lower_topic) and "blade" in name:
+            print(f"[{niche.upper()}] Matched Keyword Background: {os.path.basename(c)}")
+            return c
+
     chosen = random.choice(candidates)
     print(f"[{niche.upper()}] Selected Background Video: {os.path.basename(chosen)}")
     return chosen
 
-def compose_short(niche, audio_path, ass_path, output_mp4):
+def compose_short(niche, audio_path, ass_path, output_mp4, topic_text=""):
     print(f"[{niche.upper()}] Composing vertical short with audio mix and styled subtitles...")
-    bg_video = choose_background_video(niche)
+    bg_video = choose_background_video(niche, topic_text)
     bg_dur = get_duration(bg_video)
     audio_dur = get_duration(audio_path)
 
@@ -274,7 +286,7 @@ def run_pipeline(niche):
     
     # 4. Render Video with Background Gameplay, BGM, and Styled Subtitles
     output_video = os.path.join(BASE_DIR, f"output/{niche}_short_{timestamp}.mp4")
-    compose_short(niche, audio_file, ass_file, output_video)
+    compose_short(niche, audio_file, ass_file, output_video, topic_text=topic_info['topic'])
     
     # 5. Save metadata JSON
     meta_path = os.path.join(BASE_DIR, f"output/{niche}_short_{timestamp}.json")
