@@ -1,0 +1,219 @@
+{
+  "name": "YouTube Shorts AI Automation",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "id": "1",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        200,
+        300
+      ],
+      "webhookId": "tg-shorts-trigger",
+      "credentials": {
+        "telegramApi": {
+          "id": "BWByodGTvlxmagh6",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "operation": "get",
+        "fileId": "={{ $json.message.video ? $json.message.video.file_id : ($json.message.document ? $json.message.document.file_id : '') }}",
+        "additionalFields": {}
+      },
+      "id": "2",
+      "name": "Download Telegram Video",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        420,
+        300
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "BWByodGTvlxmagh6",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const message = $('Telegram Trigger').item.json.message;\nconst userCaption = message.caption || \"Insane Roblox funny moments, glitch, and gameplay\";\n\nconst prompt = `You are an elite Roblox gaming YouTuber creating viral YouTube Shorts.\nTopic/Context: \"${userCaption}\"\n\nCreate:\n1. \"title\": A viral, high-CTR hook title strictly under 60 characters with gaming emojis ending with \"#Shorts #Roblox\" (e.g. \"Bro Thought He Could Escape! 💀 #Shorts #Roblox\" or \"Only 1% of Roblox Players Know This! 🤯 #Shorts #Roblox\").\n2. \"description\": An exciting, suspenseful 2-sentence caption followed by viral hashtags: #Roblox #RobloxShorts #RobloxMemes #Shorts #Gaming #Viral.\n3. \"tags\": 6-10 comma-separated keywords (e.g. \"roblox, roblox shorts, roblox memes, roblox funny, blox fruits, roblox gameplay, gaming, viral\").\n\nRespond strictly in valid JSON only with NO markdown and NO extra text:\n{\n  \"title\": \"Your Title Here #Shorts #Roblox\",\n  \"description\": \"Your description here...\\\\n\\\\n#Roblox #RobloxShorts #RobloxMemes #Shorts #Gaming #Viral\",\n  \"tags\": \"roblox, roblox shorts, roblox memes, roblox funny, blox fruits, gaming\"\n}`;\n\nreturn {\n  prompt: prompt,\n  userCaption: userCaption,\n  chatId: message.chat.id,\n  messageId: message.message_id\n};"
+      },
+      "id": "3",
+      "name": "Prepare Ollama Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        640,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:11434/api/generate",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={\n  \"model\": \"llama3.2\",\n  \"prompt\": {{ JSON.stringify($json.prompt) }},\n  \"stream\": false,\n  \"format\": \"json\"\n}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "4",
+      "name": "Generate Captions with Ollama",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        860,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "let raw = $json.response;\nlet meta = {\n  title: \"Epic Roblox Moments! 🎮 #Shorts #Roblox\",\n  description: \"Wait till the end! 💀 Like and subscribe for more Roblox shorts! #Roblox #RobloxShorts #RobloxMemes #Shorts #Gaming #Viral\",\n  tags: \"roblox, roblox shorts, roblox memes, gaming\"\n};\n\ntry {\n  const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;\n  if (parsed.title) meta.title = parsed.title;\n  if (parsed.description) meta.description = parsed.description;\n  if (parsed.tags) {\n    meta.tags = Array.isArray(parsed.tags) ? parsed.tags.join(',') : String(parsed.tags);\n  }\n} catch(e) {\n  meta.description = raw;\n}\n\nif (!meta.title.toLowerCase().includes('#shorts')) {\n  meta.title = `${meta.title.slice(0, 48)} #Shorts`;\n}\nif (!meta.title.toLowerCase().includes('#roblox')) {\n  meta.title = `${meta.title} #Roblox`;\n}\n\nif (Array.isArray(meta.tags)) {\n  meta.tags = meta.tags.join(',');\n}\n\nconst binary = $('Download Telegram Video').item.binary;\n\nreturn {\n  json: {\n    title: meta.title,\n    description: meta.description,\n    tags: String(meta.tags),\n    chatId: $('Prepare Ollama Prompt').item.json.chatId\n  },\n  binary: binary\n};"
+      },
+      "id": "5",
+      "name": "Format Video Metadata",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1080,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "video",
+        "operation": "upload",
+        "title": "={{ $json.title }}",
+        "binaryProperty": "data",
+        "categoryId": "20",
+        "options": {
+          "description": "={{ $json.description }}",
+          "privacyStatus": "public",
+          "tags": "={{ $json.tags }}"
+        }
+      },
+      "id": "6",
+      "name": "Upload to YouTube Shorts",
+      "type": "n8n-nodes-base.youTube",
+      "typeVersion": 1,
+      "position": [
+        1300,
+        300
+      ],
+      "credentials": {
+        "youTubeOAuth2Api": {
+          "id": "ytOAuth2Roblox01",
+          "name": "YouTube account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Format Video Metadata').item.json.chatId }}",
+        "text": "=🎉 *Roblox Short Successfully Uploaded!*\n\n📌 *Title:* {{ $('Format Video Metadata').item.json.title }}\n\n🔗 *Watch:* https://youtube.com/shorts/{{ $json.uploadId || $json.id }}\n\n📝 *Description:*\n{{ $('Format Video Metadata').item.json.description }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "7",
+      "name": "Send Telegram Confirmation",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1520,
+        300
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "BWByodGTvlxmagh6",
+          "name": "Telegram account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Download Telegram Video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Telegram Video": {
+      "main": [
+        [
+          {
+            "node": "Prepare Ollama Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Ollama Prompt": {
+      "main": [
+        [
+          {
+            "node": "Generate Captions with Ollama",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Captions with Ollama": {
+      "main": [
+        [
+          {
+            "node": "Format Video Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Video Metadata": {
+      "main": [
+        [
+          {
+            "node": "Upload to YouTube Shorts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload to YouTube Shorts": {
+      "main": [
+        [
+          {
+            "node": "Send Telegram Confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
