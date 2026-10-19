@@ -123,8 +123,8 @@
     },
     {
       "parameters": {
-        "chatId": "={{ $('Format Video Metadata').item.json.chatId }}",
-        "text": "=🎉 *Roblox Short Successfully Uploaded!*\n\n📌 *Title:* {{ $('Format Video Metadata').item.json.title }}\n\n🔗 *Watch:* https://youtube.com/shorts/{{ $json.uploadId || $json.id }}\n\n📝 *Description:*\n{{ $('Format Video Metadata').item.json.description }}",
+        "chatId": "={{ $(\"Format Auto Metadata\").isExecuted ? $(\"Format Auto Metadata\").item.json.chatId : $(\"Format Video Metadata\").item.json.chatId }}",
+        "text": "=🎉 *Roblox Short Successfully Uploaded!*\n\n📌 *Title:* {{ $(\"Format Auto Metadata\").isExecuted ? $(\"Format Auto Metadata\").item.json.title : $(\"Format Video Metadata\").item.json.title }}\n\n🔗 *Watch:* https://youtube.com/shorts/{{ $json.uploadId || $json.id }}\n\n📝 *Description:*\n{{ $(\"Format Auto Metadata\").isExecuted ? $(\"Format Auto Metadata\").item.json.description : $(\"Format Video Metadata\").item.json.description }}",
         "additionalFields": {
           "parse_mode": "Markdown"
         }
@@ -143,6 +143,38 @@
           "name": "Telegram account"
         }
       }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "auto-upload-roblox",
+        "responseMode": "onReceived",
+        "options": {
+          "binaryData": true
+        }
+      },
+      "id": "8",
+      "name": "Auto Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        200,
+        500
+      ],
+      "webhookId": "auto-upload-roblox"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $json.body || {};\nreturn {\n  json: {\n    title: body.title || \"Roblox Moments! #Shorts\",\n    description: body.description || \"Like and subscribe!\",\n    tags: String(body.tags || \"roblox, shorts, gaming\"),\n    chatId: body.chatId || \"7268016860\"\n  },\n  binary: $binary\n};"
+      },
+      "id": "9",
+      "name": "Format Auto Metadata",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        640,
+        500
+      ]
     }
   ],
   "connections": {
@@ -211,8 +243,31 @@
           }
         ]
       ]
+    },
+    "Auto Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Format Auto Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Auto Metadata": {
+      "main": [
+        [
+          {
+            "node": "Upload to YouTube Shorts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
+  "active": true,
   "settings": {
     "executionOrder": "v1"
   }
