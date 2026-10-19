@@ -183,7 +183,7 @@ def choose_background_video(niche, topic_text=""):
     return chosen
 
 def compose_short(niche, audio_path, ass_path, output_mp4, topic_text=""):
-    print(f"[{niche.upper()}] Composing vertical short with audio mix and styled subtitles...")
+    print(f"[{niche.upper()}] Composing vertical short (Background video audio 100% MUTED, Pure Voiceover only)...")
     bg_video = choose_background_video(niche, topic_text)
     bg_dur = get_duration(bg_video)
     audio_dur = get_duration(audio_path)
@@ -191,55 +191,27 @@ def compose_short(niche, audio_path, ass_path, output_mp4, topic_text=""):
     max_start = max(0, bg_dur - audio_dur - 1)
     start_time = random.uniform(0, max_start) if max_start > 0 else 0
 
-    bgm_path = os.path.join(BASE_DIR, "assets/bgm.mp3")
-    has_bgm = os.path.exists(bgm_path)
-
     # Video: 9:16 vertical crop + scale to 1080x1920 + burn subtitles
-    # Audio: Voice at 100% + BGM looped at 12% volume
-    if has_bgm:
-        filter_complex = (
-            f"[0:v]crop=min(iw\\,ih*9/16):min(ih\\,iw*16/9):(iw-ow)/2:(ih-oh)/2,scale=1080:1920,ass={ass_path}[v];"
-            f"[1:a]volume=1.0[voice];"
-            f"[2:a]aloop=loop=-1:size=2e+09,volume=0.12[bgm];"
-            f"[voice][bgm]amix=inputs=2:duration=first:dropout_transition=2[a]"
-        )
-        cmd = [
-            FFMPEG_PATH, "-y",
-            "-ss", str(round(start_time, 2)),
-            "-i", bg_video,
-            "-i", audio_path,
-            "-i", bgm_path,
-            "-filter_complex", filter_complex,
-            "-map", "[v]",
-            "-map", "[a]",
-            "-t", str(round(audio_dur + 0.3, 2)),
-            "-c:v", "libx264",
-            "-preset", "veryfast",
-            "-crf", "22",
-            "-c:a", "aac",
-            "-b:a", "192k",
-            "-ar", "44100",
-            output_mp4
-        ]
-    else:
-        filter_complex = f"[0:v]crop=min(iw\\,ih*9/16):min(ih\\,iw*16/9):(iw-ow)/2:(ih-oh)/2,scale=1080:1920,ass={ass_path}[v]"
-        cmd = [
-            FFMPEG_PATH, "-y",
-            "-ss", str(round(start_time, 2)),
-            "-i", bg_video,
-            "-i", audio_path,
-            "-filter_complex", filter_complex,
-            "-map", "[v]",
-            "-map", "1:a:0",
-            "-t", str(round(audio_dur + 0.3, 2)),
-            "-c:v", "libx264",
-            "-preset", "veryfast",
-            "-crf", "22",
-            "-c:a", "aac",
-            "-b:a", "192k",
-            "-ar", "44100",
-            output_mp4
-        ]
+    # Audio: Input 0 (gameplay) is completely MUTED. Only Input 1 (pure voiceover) is mapped!
+    filter_complex = f"[0:v]crop=min(iw\\,ih*9/16):min(ih\\,iw*16/9):(iw-ow)/2:(ih-oh)/2,scale=1080:1920,ass={ass_path}[v]"
+
+    cmd = [
+        FFMPEG_PATH, "-y",
+        "-ss", str(round(start_time, 2)),
+        "-i", bg_video,
+        "-i", audio_path,
+        "-filter_complex", filter_complex,
+        "-map", "[v]",
+        "-map", "1:a:0",
+        "-t", str(round(audio_dur + 0.3, 2)),
+        "-c:v", "libx264",
+        "-preset", "veryfast",
+        "-crf", "22",
+        "-c:a", "aac",
+        "-b:a", "192k",
+        "-ar", "44100",
+        output_mp4
+    ]
 
     subprocess.run(cmd, check=True)
 
